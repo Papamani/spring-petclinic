@@ -1,0 +1,90 @@
+pipeline {
+libraries{
+lib 'shlib'
+}
+
+ agent any
+   tools{
+        maven "Maven"
+    }
+    stages {
+stage('Start')
+            {
+                steps
+                 {       
+                    sendNotifications 'STARTED'
+                 }
+            }
+
+      stage('clean and build')
+            {
+                steps{
+                sendNotifications 'STARTEDBUILD'
+                build 'BUILD'
+                 
+            }
+            post{
+                failure{
+                    jira 'BUILD FAILED','TEST-1'
+                }
+            }
+            }
+    
+             stage('SonarQube analysis') {
+             environment {
+           scannerHome=tool 'sonarScanner'
+       }
+
+            steps {
+            sendNotifications 'SONAR ANALYSIS STARTED'
+                sonar()
+            } 
+            post{
+                failure{
+                    jira 'SONAR ANALYSIS FAILED','TEST-2'
+                }
+            }
+            }
+        stage('Quality Gate') {
+            steps {
+             gate 'GATE'
+            }
+            post{
+                failure{
+                    jira 'QUALITY GATE FAILED','TEST-3'
+                }
+            }
+       }
+       stage('Security scan') {
+            steps {
+            sendNotifications 'security scan started'
+             scan 'SCAN'
+            }
+            post{
+                failure{
+                    jira 'SECURITY SCAN FAILED','TEST-4'
+                }
+            }
+       }
+  
+            stage("Nexus") {
+            steps {
+          sendNotifications  'NEXUS STAGE STARTED'
+          nexus 'NEXUS'
+        }
+        post{
+                failure{
+                    jira 'NEXUS UPLOADING FAILED','TEST-5'
+                }
+            }
+        }
+ 
+      
+        }
+        post{
+always{
+sendNotifications currentBuild.result
+}
+}
+
+    }
